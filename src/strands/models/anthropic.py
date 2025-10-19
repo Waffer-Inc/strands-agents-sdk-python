@@ -165,6 +165,9 @@ class AnthropicModel(Model):
                 "tool_use_id": content["toolResult"]["toolUseId"],
                 "type": "tool_result",
             }
+        
+        if "type" in content:
+            return content
 
         raise TypeError(f"content_type=<{next(iter(content))}> | unsupported type")
 

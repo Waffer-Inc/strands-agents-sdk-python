@@ -835,6 +835,8 @@ class Agent:
                         # Treat as List[ContentBlock] input - convert to user message
                         # This allows invalid structures to be passed through to the model
                         messages = [{"role": "user", "content": cast(list[ContentBlock], prompt)}]
+                    else:
+                        messages = [{"role": "user", "content": prompt}]
         else:
             messages = []
         if messages is None:
