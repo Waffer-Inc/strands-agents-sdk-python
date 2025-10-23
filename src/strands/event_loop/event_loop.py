@@ -13,6 +13,7 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any, AsyncGenerator
 
+from httpx import RemoteProtocolError
 from opentelemetry import trace as trace_api
 
 from ..hooks import AfterModelCallEvent, BeforeModelCallEvent, MessageAddedEvent
@@ -370,18 +371,23 @@ async def _handle_model_execution(
                     )
                 )
 
-                if isinstance(e, ModelThrottledException):
+                # Treat RemoteProtocolError (mid-stream connection failures) same as throttling for retry logic
+                is_retriable = isinstance(e, (ModelThrottledException, RemoteProtocolError))
+                
+                if is_retriable:
                     if attempt + 1 == MAX_ATTEMPTS:
                         yield ForceStopEvent(reason=e)
                         raise e
 
-                    logger.debug(
+                    error_type = "connection" if isinstance(e, RemoteProtocolError) else "throttling"
+                    logger.info(
                         "retry_delay_seconds=<%s>, max_attempts=<%s>, current_attempt=<%s> "
-                        "| throttling exception encountered "
+                        "| %s exception encountered "
                         "| delaying before next retry",
                         current_delay,
                         MAX_ATTEMPTS,
                         attempt + 1,
+                        error_type,
                     )
                     await asyncio.sleep(current_delay)
                     current_delay = min(current_delay * 2, MAX_DELAY)
